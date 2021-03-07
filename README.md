@@ -53,7 +53,7 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
         checkQueue,
         killQueue,
         destroyQueue,
-     } from 'node-fetch'
+     } from 'fetch-queue'
 
     // enable debugging to the console
     debugQueue()
