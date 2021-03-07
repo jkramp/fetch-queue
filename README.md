@@ -8,7 +8,7 @@ See https://github.com/jkramp/fetch-queue for complete documentation.
 1. Import and use just as you would with fetch
 2. Profit!
 
-This assumes fetch is globally available
+_NOTE: This assumes fetch is globally available_
 
 ## Yet another queue tool?
 There are a lot of queuing tools out there. This one is specific to fetch and built to be a drop in replacement for fetch.
@@ -96,11 +96,9 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
     })
 ```
 
-
-
 ## License
 
-fetch-queue is licensed under the MIT.  
+fetch-queue is licensed under the GPLv3.  
 See [License.txt](./License.txt)
 
 ---
