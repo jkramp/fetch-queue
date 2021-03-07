@@ -3,14 +3,12 @@
   "version": "1.0.0",
   "description": "A queue system for fetch requests",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "author": "Jeff Kramp",
   "license": "GPL-3.0-or-later",
-  "devDependencies": {
-  },
-  "resolutions": {
-  },
+  "dependencies": {},
+  "devDependencies": {},
+  "resolutions": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jkramp/fetch-queue.git"

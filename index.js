@@ -17,10 +17,9 @@ const defaultQueue = {
     kill: null
 }
 
-const clone = (obj)=>{
+const clone = (obj) => {
     return JSON.parse(JSON.stringify(obj))
 }
-
 
 let queues = {
     default: clone(defaultQueue)
@@ -33,7 +32,6 @@ const log = (message, queueName, ...args) => {
     console.log(message, queueName ? queues[queueName] || queueName : null, ...args)
 }
 
-
 const createQueue = (queueName = 'default', config = {}) => {
     log('Create queue', queueName)
     if (queues[queueName]) {
@@ -44,9 +42,9 @@ const createQueue = (queueName = 'default', config = {}) => {
     }
     queues[queueName] = {
         ...clone(defaultQueue),
-        ...{ config:{...clone(defaultConfig),...config} }
+        ...{ config: { ...clone(defaultConfig), ...config } }
     }
-    log('Queue created', queueName,queues[queueName])
+    log('Queue created', queueName, queues[queueName])
     return
 }
 
@@ -92,9 +90,8 @@ const checkQueue = (queueName = 'default') => {
     }
 }
 
-
 const fetchQueue = (url, fetchOptions, queueName = 'default') => {
-    if (fetchOptions?.queueName){
+    if (fetchOptions?.queueName) {
         queueName = fetchOptions.queueName
     }
     log('Fetch queue', queueName)
@@ -215,7 +212,7 @@ const processQueue = async (queueName) => {
                 // queue.pending++
                 let delay = queue.kill ? 0 : queue.config.retryDelay
                 await wait(delay, queue)
-                log('Requeued task', queueName,queue)
+                log('Requeued task', queueName, queue)
 
                 // queue.pending--
                 queue.tasks.push(task)
