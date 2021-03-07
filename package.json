@@ -4,15 +4,19 @@
   "description": "A queue system for fetch requests",
   "main": "index.js",
   "scripts": {
-    "build": "parcel build index.js"
   },
   "author": "Jeff Kramp",
-  "license": "GPLv3",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "parcel": "^1.12.4"
+  },
+  "resolutions": {
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jkramp/fetch-queue"
-  }
+    "url": "git+https://github.com/jkramp/fetch-queue.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jkramp/fetch-queue/issues"
+  },
+  "homepage": "https://github.com/jkramp/fetch-queue#readme"
 }
