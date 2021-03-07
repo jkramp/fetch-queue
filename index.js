@@ -6,6 +6,7 @@ const defaultConfig = {
     retryDelay: 10,
     fetchOptions: {},
     baseUrl: '',
+    retryOn: [408, 409, 418, 425, 429, '5xx']
 }
 
 const defaultQueue = {
@@ -194,8 +195,12 @@ const processQueue = async (queueName) => {
         return fetch(queue.config.baseUrl + task.url, options)
             .then(resp => {
                 log('Task completed', queueName)
-                if (!resp.ok || resp.status >= 400) {
-                    log('Task did now succeed', queueName)
+                let httpErrorXX = resp.status ? resp.status.toString()[0] + 'xx' : null
+                if (
+                    !resp.ok ||
+                    queue.config.retryOn.indexOf(resp.status) > 1 ||
+                    queue.config.retryOn.indexOf(httpErrorXX) > 1) {
+                    log('Task did not succeed', queueName)
                     throw resp
                 }
                 task.resolve(resp)

@@ -70,7 +70,9 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
                 Authorization: 'bearer 123456'
             }
         }, // preset fetch options to be included with each request
-        urlPrefix: 'https://example.com/', // prefix urls with this string
+        baseUrl: 'https://example.com/', // prefix urls with this string
+        concurrent: 3,
+        retryOn: [408, 409, 418, 425, 429, '5xx'] // http response codes that the queue should retry
     })
 
     // add item to a custom queue
