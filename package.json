@@ -1,11 +1,11 @@
 {
   "name": "fetch-queue",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A queue system for fetch requests",
   "main": "index.js",
   "scripts": {},
   "author": "Jeff Kramp",
-  "license": "GPL-3.0-or-later",
+  "license": "GPL-3.0",
   "dependencies": {},
   "devDependencies": {},
   "resolutions": {},
