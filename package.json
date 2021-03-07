@@ -1,0 +1,14 @@
+{
+  "name": "fetch-queue",
+  "version": "1.0.0",
+  "description": "A queue system for fetch requests",
+  "main": "index.js",
+  "scripts": {
+    "build": "parcel build index.js"
+  },
+  "author": "Jeff Kramp",
+  "license": "GPLv3",
+  "devDependencies": {
+    "parcel": "^1.12.4"
+  }
+}
