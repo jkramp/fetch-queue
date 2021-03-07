@@ -8,6 +8,8 @@ See https://github.com/jkramp/fetch-queue for complete documentation.
 1. Import and use just as you would with fetch
 2. Profit!
 
+This assumes fetch is globally available
+
 ## Yet another queue tool?
 There are a lot of queuing tools out there. This one is specific to fetch and built to be a drop in replacement for fetch.
 
@@ -16,8 +18,8 @@ There are a lot of queuing tools out there. This one is specific to fetch and bu
 
 Import and call in place of fetch. This can be called in multiple parts of an application or in a batch using Promise.all or Promise.allSettled
 
-
-    import fetchQueue from 'node-fetch'
+```javascript
+    import fetchQueue from 'fetch-queue'
 
     Promise.allSettled([
         fetchQueue('https://example.com/endpoint1',{
@@ -38,11 +40,11 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
     }).catch(error=>{
         console.log(error)
     })
-
+```
 
 ## Advanced Usage
 
-
+```javascript
 
     import {
         debugQueue,
@@ -92,7 +94,7 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
     destroyQueue('mySpecialQueue').then(()=>{
         console.log('Queue no longer exists')
     })
-
+```
 
 
 
