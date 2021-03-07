@@ -16,7 +16,6 @@ There are a lot of queuing tools out there. This one is specific to fetch and bu
 
 Import and call in place of fetch. This can be called in multiple parts of an application or in a batch using Promise.all or Promise.allSettled
 
-``
 
     import fetchQueue from 'node-fetch'
 
@@ -40,11 +39,10 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
         console.log(error)
     })
 
-``
 
 ## Advanced Usage
 
-``
+
 
     import {
         debugQueue,
@@ -97,11 +95,10 @@ Import and call in place of fetch. This can be called in multiple parts of an ap
 
 
 
-``
 
 ## License
 
-fetch-queue is licensed under the GPLv3.  
+fetch-queue is licensed under the MIT.  
 See [License.txt](./License.txt)
 
 ---
