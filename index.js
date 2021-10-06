@@ -208,9 +208,9 @@ const processQueue = async (queueName) => {
                 processQueue(queueName)
                 return
             }).catch(async err => {
-                console.log(queue.running)
+                log(queue.running)
                 queue.running--
-                console.log(queue.running)
+                log(queue.running)
                 task.error = err
                 log('Task threw an error', queueName)
                 processQueue(queueName)
