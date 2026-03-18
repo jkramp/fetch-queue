@@ -13,6 +13,8 @@ export interface QueueConfig {
     baseUrl?: string
     /** HTTP status codes or patterns like '5xx' to retry on */
     retryOn?: Array<number | string>
+    /** If true, non-retryable HTTP errors reject immediately instead of being retried (default: false) */
+    rejectOnHttpError?: boolean
 }
 
 export interface QueueStatus {

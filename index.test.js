@@ -218,11 +218,33 @@ describe('fetch-queue', () => {
             expect(globalThis.fetch).toHaveBeenCalledTimes(2)
         })
 
-        it('does NOT retry on non-retryable error codes', async () => {
+        it('retries non-retryable error codes by default (backwards compat)', async () => {
+            // By default rejectOnHttpError is false, so ALL non-ok responses are retried
             const resp = mockResponse(404)
             globalThis.fetch.mockResolvedValue(resp)
 
-            const promise = fetchQueue('https://example.com', {})
+            createQueue('compat-test', { retries: 1, retryDelay: 0.01 })
+            const promise = fetchQueue('https://example.com', {}, 'compat-test')
+
+            for (let i = 0; i < 5; i++) {
+                await flushPromises()
+                await vi.advanceTimersByTimeAsync(100)
+            }
+
+            // Should have been called twice (1 initial + 1 retry) before rejecting
+            await expect(promise).rejects.toEqual(expect.objectContaining({
+                url: 'https://example.com',
+                attempts: 2,
+            }))
+            expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+        })
+
+        it('does NOT retry on non-retryable error codes when rejectOnHttpError is true', async () => {
+            const resp = mockResponse(404)
+            globalThis.fetch.mockResolvedValue(resp)
+
+            createQueue('reject-test', { rejectOnHttpError: true })
+            const promise = fetchQueue('https://example.com', {}, 'reject-test')
             await flushPromises()
 
             await expect(promise).rejects.toEqual(expect.objectContaining({
@@ -361,7 +383,7 @@ describe('fetch-queue', () => {
     })
 
     describe('killQueue', () => {
-        it('rejects all pending tasks with QueueError shape', async () => {
+        it('rejects all pending tasks with "Queue Killed" string (backwards compat)', async () => {
             createQueue('kill-test', { concurrent: 1 })
 
             let resolver
@@ -379,12 +401,8 @@ describe('fetch-queue', () => {
             const killPromise = killQueue('kill-test')
             await flushPromises()
 
-            // Second task should be rejected with QueueError shape
-            await expect(task2).rejects.toEqual(expect.objectContaining({
-                url: 'https://example.com/2',
-                error: 'Queue Killed',
-                attempts: 0
-            }))
+            // Second task should be rejected with plain string for backwards compat
+            await expect(task2).rejects.toBe('Queue Killed')
 
             // Complete the running task so kill resolves
             resolver(mockResponse(200))
@@ -477,12 +495,17 @@ describe('fetch-queue', () => {
     })
 
     describe('error consistency', () => {
-        it('all rejections produce QueueError-shaped objects', async () => {
+        it('all HTTP failure rejections produce QueueError-shaped objects', async () => {
             const errorResp = mockResponse(404)
             globalThis.fetch.mockResolvedValue(errorResp)
 
+            // Use rejectOnHttpError so 404 rejects immediately
+            createQueue('err-shape', { rejectOnHttpError: true })
+
             try {
-                await fetchQueue('https://example.com')
+                const promise = fetchQueue('https://example.com', {}, 'err-shape')
+                await flushPromises()
+                await promise
                 expect.unreachable('Should have rejected')
             } catch (err) {
                 expect(err).toHaveProperty('url', 'https://example.com')
@@ -492,7 +515,7 @@ describe('fetch-queue', () => {
             }
         })
 
-        it('queue killed rejections have QueueError shape', async () => {
+        it('queue killed rejections are plain string (backwards compat)', async () => {
             createQueue('kill-err-test', { concurrent: 1 })
 
             let resolver
@@ -507,13 +530,7 @@ describe('fetch-queue', () => {
             killQueue('kill-err-test')
             await flushPromises()
 
-            await expect(task2).rejects.toEqual(
-                expect.objectContaining({
-                    url: 'https://example.com/2',
-                    attempts: 0,
-                    error: 'Queue Killed'
-                })
-            )
+            await expect(task2).rejects.toBe('Queue Killed')
 
             resolver(mockResponse(200))
             await flushPromises()

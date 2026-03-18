@@ -7,6 +7,7 @@
  * @property {RequestInit} [fetchOptions={}] - Default fetch options merged into every request
  * @property {string} [baseUrl=''] - URL prefix for all requests
  * @property {Array<number|string>} [retryOn] - HTTP status codes or patterns like '5xx' to retry on
+ * @property {boolean} [rejectOnHttpError=false] - If true, non-retryable HTTP errors reject immediately instead of being retried
  */
 
 /**
@@ -34,7 +35,8 @@ const defaultConfig = {
     retryBackoff: 'fixed',
     fetchOptions: {},
     baseUrl: '',
-    retryOn: [408, 409, 418, 425, 429, '5xx']
+    retryOn: [408, 409, 418, 425, 429, '5xx'],
+    rejectOnHttpError: false
 }
 
 const defaultQueue = {
@@ -250,7 +252,7 @@ const createFetchQueue = (instanceConfig = {}) => {
             let remainingTasks = queue.tasks.splice(0, queue.tasks.length)
             if (remainingTasks.length) {
                 log('Killing tasks', queueName, { remainingTasks })
-                remainingTasks.forEach(task => task.reject(makeError(task, 'Queue Killed')))
+                remainingTasks.forEach(task => task.reject('Queue Killed'))
             }
             let status = checkQueue(queueName)
             if (status.total === 0) {
@@ -311,20 +313,22 @@ const createFetchQueue = (instanceConfig = {}) => {
                         return
                     }
 
+                    // Check if this status code should be retried
                     let httpErrorXX = resp.status ? resp.status.toString()[0] + 'xx' : null
-                    if (
-                        queue.config.retryOn.includes(resp.status) ||
+                    let isRetryable = queue.config.retryOn.includes(resp.status) ||
                         queue.config.retryOn.includes(httpErrorXX)
-                    ) {
-                        log('Task should be retried', queueName)
-                        throw resp
+
+                    if (queue.config.rejectOnHttpError && !isRetryable) {
+                        // Non-retryable error: reject immediately without retry
+                        queue.running--
+                        task.reject(makeError(task, resp))
+                        processQueue(queueName)
+                        return
                     }
 
-                    // Non-retryable error: reject immediately
-                    queue.running--
-                    task.reject(makeError(task, resp))
-                    processQueue(queueName)
-                    return
+                    // Retry all non-ok responses (backwards compatible default)
+                    log('Task should be retried', queueName)
+                    throw resp
                 }).catch(async err => {
                     delete queue.abortControllers[taskId]
                     queue.running--
