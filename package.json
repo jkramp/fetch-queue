@@ -1,6 +1,6 @@
 {
   "name": "fetch-queue",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Fetch request queues with concurrency limits, retries, and cancellation",
   "main": "index.js",
   "scripts": {

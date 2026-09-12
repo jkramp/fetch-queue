@@ -1,7 +1,7 @@
 # API reference
 
-This reference describes the unreleased code. See the [migration guide](./migration.md)
-for behavior that differs from the published 1.0.3 package.
+This reference describes version 2.0.0. See the [migration guide](./migration.md)
+for behavior that differs from version 1.0.x.
 
 ## Exports
 

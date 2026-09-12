@@ -83,8 +83,8 @@ beside the PR title. Then check **Files changed** and rerun checks if needed. Gi
 may retarget it automatically when the previous branch is deleted, but verify the
 base rather than relying on that behavior.
 
-For the current review, the order is runtime fixes, package/CI work, then
-project documentation. Each PR description identifies its prerequisite.
+For example, runtime fixes can precede package/CI work and project documentation.
+Each dependent PR description should identify its prerequisite.
 
 A merge commit preserves ancestry and is the easiest option while these PRs are
 stacked. Squash or rebase merging rewrites that ancestry, so later branches may
@@ -117,10 +117,10 @@ actually tested.
 CI validates PRs and never publishes to npm. `prepublishOnly` runs the complete
 check command if a maintainer invokes `npm publish`.
 
-1. Review compatibility changes and choose a semantic version. The current
-   unreleased changes require a major release.
-2. Update `package.json`, the lockfile, the changelog, and the README's unreleased
-   notice in a release PR. Run `npm run check` and review `npm pack --dry-run`.
+1. Review compatibility changes and choose a semantic version. Changes that break
+   backward compatibility require a major release.
+2. Update `package.json`, the lockfile, the changelog, and any release-specific README
+   notices in a release PR. Run `npm run check` and review `npm pack --dry-run`.
 3. Merge the release PR and confirm CI on the release commit.
 4. An authorized maintainer publishes from that clean commit and creates the
    matching Git tag and GitHub release.
