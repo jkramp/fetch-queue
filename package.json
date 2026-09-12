@@ -1,16 +1,28 @@
 {
   "name": "fetch-queue",
   "version": "1.0.2",
-  "description": "A queue system for fetch requests",
+  "description": "Fetch request queues with concurrency limits, retries, and cancellation",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage test/*.test.js",
+    "test:types": "tsc --project tsconfig.json",
+    "test:package": "node scripts/check-package.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check && npm run test:types && npm test && npm run test:package",
+    "prepublishOnly": "npm run check"
   },
   "author": "Jeff Kramp",
   "license": "GPL-3.0",
-  "dependencies": {},
-  "devDependencies": {},
-  "resolutions": {},
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jkramp/fetch-queue.git"
@@ -19,5 +31,36 @@
     "url": "https://github.com/jkramp/fetch-queue/issues"
   },
   "homepage": "https://github.com/jkramp/fetch-queue#readme",
-  "type": "module"
+  "type": "module",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./index.js": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE",
+    "logo.svg"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "keywords": [
+    "fetch",
+    "queue",
+    "concurrency",
+    "retry",
+    "abort",
+    "typescript"
+  ]
 }
