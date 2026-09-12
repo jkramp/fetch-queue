@@ -346,7 +346,7 @@ export function createFetchQueue(config = {}) {
             queue.stopping = { promise, resolve }
         }
         const promise = queue.stopping.promise
-        for (const task of [...queue.tasks, ...queue.pending.keys()])
+        for (const task of [...queue.tasks.splice(0), ...queue.pending.keys()])
             cancelWaiting(queue, task, 'Queue Killed')
         if (force) {
             for (const task of queue.running) {

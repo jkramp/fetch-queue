@@ -638,3 +638,29 @@ test('shared default and named exports refer to the same queue', async () => {
     assert.equal(await (await shared.default('shared')).text(), 'shared')
     await shared.destroyQueue()
 })
+
+test('stopping a large backlog settles every queued request and waits for the active one', async () => {
+    const queue = createFetchQueue({ concurrent: 1 })
+    const active = deferred()
+    globalThis.fetch = () => active.promise
+    const results = Promise.allSettled(
+        Array.from({ length: 15000 }, () => queue.fetchQueue('queued')),
+    )
+    const stopped = queue.killQueue()
+    assert.equal(queue.checkQueue().queued, 0)
+    assert.equal(queue.checkQueue().running, 1)
+    active.resolve(new Response())
+    await stopped
+    const settled = await bounded(results, 5000)
+    assert.equal(settled[0].status, 'fulfilled')
+    assert.ok(
+        settled
+            .slice(1)
+            .every(
+                (result) =>
+                    result.status === 'rejected' &&
+                    result.reason === 'Queue Killed',
+            ),
+    )
+    assert.equal(queue.checkQueue().total, 0)
+})
