@@ -290,13 +290,8 @@ export function createFetchQueue(config = {}) {
                 options.signal === undefined && input instanceof Request
                     ? input.signal
                     : options.signal
-            if (
-                signal != null &&
-                (typeof signal.addEventListener !== 'function' ||
-                    typeof signal.aborted !== 'boolean')
-            ) {
-                throw new TypeError('signal must be an AbortSignal')
-            }
+            // Validate the native signal and reject an already-aborted request before enqueueing.
+            if (signal != null) AbortSignal.prototype.throwIfAborted.call(signal)
             const controller = new AbortController()
             // Native composition also keeps caller cancellation connected to returned response bodies.
             const fetchSignal =
