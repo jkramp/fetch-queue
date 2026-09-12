@@ -35,6 +35,9 @@ node_modules/
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
+# Local IDE settings
+.idea/
+
 # Local secrets and package artifacts
 .env.*
 !.env.example
