@@ -1,7 +1,12 @@
 /** HTTP status families accepted by retryOn. Only non-OK responses are retried. */
 export type HttpStatusFamily = '1xx' | '2xx' | '3xx' | '4xx' | '5xx'
 
-export interface FetchQueueOptions extends RequestInit {
+/** Native request options, including the duplex mode required for Node stream uploads. */
+export interface QueueRequestInit extends RequestInit {
+    duplex?: 'half'
+}
+
+export interface FetchQueueOptions extends QueueRequestInit {
     /** Overrides the queueName argument. This field is not forwarded to fetch. */
     queueName?: string
 }
@@ -14,7 +19,7 @@ export interface QueueConfig {
     /** Fixed retry delay in seconds, from 0 through 2147483.647. Default: 10. */
     retryDelay?: number
     /** Request defaults. Headers merge case-insensitively; platform objects retain identity. */
-    fetchOptions?: RequestInit
+    fetchOptions?: QueueRequestInit
     /** Prefix for relative string inputs. Absolute strings, URL, and Request bypass it. */
     baseUrl?: string
     /** HTTP failures to retry. Network failures also retry. Default: [408, 409, 418, 425, 429, '5xx']. */
@@ -39,7 +44,7 @@ export interface QueueStatus {
 export interface QueueError {
     url: string | URL | Request
     /** Merged request options. May include sensitive headers; avoid logging this object. */
-    fetchOptions: RequestInit
+    fetchOptions: QueueRequestInit
     /** Number of fetch calls actually started. */
     attempts: number
     /** Final Response or the value thrown by fetch. */

@@ -52,3 +52,16 @@ createQueue('invalid', { concurrent: 'two' })
 createFetchQueue({ retryOn: ['6xx'] })
 // @ts-expect-error toggles take booleans.
 debugQueue('yes')
+
+const upload: Promise<Response> = queue.fetchQueue(
+    'https://example.test/upload',
+    {
+        method: 'POST',
+        body: new ReadableStream<Uint8Array>(),
+        duplex: 'half',
+    },
+)
+createFetchQueue({ fetchOptions: { duplex: 'half' } })
+void upload
+// @ts-expect-error Node fetch only accepts half duplex.
+fetchQueue('https://example.test/upload', { duplex: 'full' })
