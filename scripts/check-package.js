@@ -48,7 +48,7 @@ try {
         assert.ok(files.includes(required), `Package is missing ${required}`)
     assert.ok(
         files.every((file) =>
-            /^(index\.(js|d\.ts)|package\.json|README\.md|LICENSE|logo\.svg|CHANGELOG\.md|docs\/(api|migration)\.md)$/.test(
+            /^(index\.(js|d\.ts)|package\.json|README\.md|CONTRIBUTING\.md|SECURITY\.md|examples\/batch\.js|LICENSE|logo\.svg|CHANGELOG\.md|docs\/(api|migration|review)\.md)$/.test(
                 file,
             ),
         ),
