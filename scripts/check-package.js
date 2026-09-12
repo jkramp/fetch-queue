@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const temporary = mkdtempSync(path.join(tmpdir(), 'fetch-queue-package-'))
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const npmCli = process.env.npm_execpath
+assert.ok(npmCli, 'Run this check with npm run test:package')
 const run = (command, args, cwd) =>
     execFileSync(command, args, {
         cwd,
@@ -24,8 +25,9 @@ const run = (command, args, cwd) =>
 try {
     const [packed] = JSON.parse(
         run(
-            npm,
+            process.execPath,
             [
+                npmCli,
                 'pack',
                 '--json',
                 '--ignore-scripts',
@@ -59,8 +61,9 @@ try {
         JSON.stringify({ private: true, type: 'module' }),
     )
     run(
-        npm,
+        process.execPath,
         [
+            npmCli,
             'install',
             '--ignore-scripts',
             '--no-audit',
@@ -90,8 +93,9 @@ try {
     )
     for (const module of ['NodeNext', 'ESNext']) {
         run(
-            path.join(root, 'node_modules/.bin/tsc'),
+            process.execPath,
             [
+                path.join(root, 'node_modules/typescript/bin/tsc'),
                 '--noEmit',
                 '--strict',
                 '--target',
