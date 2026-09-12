@@ -11,8 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run lint && npm run format:check && npm run test:types && npm test && npm run test:package",
-    "prepublishOnly": "npm run check"
+    "check": "npm run lint && npm run format:check && npm run test:types && npm test && npm run test:package && npm run example && npm run test:docs",
+    "prepublishOnly": "npm run check",
+    "example": "node examples/batch.js",
+    "test:docs": "node scripts/check-docs.js"
   },
   "author": "Jeff Kramp",
   "license": "GPL-3.0",
@@ -49,7 +51,14 @@
     "index.d.ts",
     "README.md",
     "LICENSE",
-    "logo.svg"
+    "logo.svg",
+    "CHANGELOG.md",
+    "docs/api.md",
+    "docs/migration.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs/review.md",
+    "examples/batch.js"
   ],
   "sideEffects": false,
   "engines": {
