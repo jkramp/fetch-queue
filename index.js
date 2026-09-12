@@ -1,245 +1,396 @@
-let debug = false
-
-const defaultConfig = {
+const defaults = {
     concurrent: 3,
     retries: 3,
     retryDelay: 10,
     fetchOptions: {},
     baseUrl: '',
-    retryOn: [408, 409, 418, 425, 429, '5xx']
+    retryOn: [408, 409, 418, 425, 429, '5xx'],
 }
 
-const defaultQueue = {
-    config: { ...defaultConfig },
-    tasks: [],
-    retryTimeouts: {},
-    running: 0,
-    pending: 0,
-    kill: null
-}
-
-const clone = (obj) => {
-    return JSON.parse(JSON.stringify(obj))
-}
-
-let queues = {
-    default: clone(defaultQueue)
-}
-
-const log = (message, queueName, ...args) => {
-    if (!debug) {
-        return
+function validateName(name) {
+    if (typeof name !== 'string' || name.length === 0) {
+        throw new TypeError('queueName must be a non-empty string')
     }
-    console.log(message, queueName ? queues[queueName] || queueName : null, ...args)
 }
 
-const createQueue = (queueName = 'default', config = {}) => {
-    log('Create queue', queueName)
-    if (queues[queueName]) {
-        log('Queue Exists', queueName)
+function mergeOptions(...sources) {
+    const options = Object.assign({}, ...sources)
+    const headers = new Headers()
+    for (const source of sources) {
+        new Headers(source?.headers).forEach((value, name) =>
+            headers.set(name, value),
+        )
+    }
+    options.headers = headers
+    delete options.queueName
+    return options
+}
+
+function configure(base, overrides) {
+    if (
+        !overrides ||
+        typeof overrides !== 'object' ||
+        Array.isArray(overrides)
+    ) {
+        throw new TypeError('config must be an object')
+    }
+    const config = { ...base, ...overrides }
+    if (!Number.isSafeInteger(config.concurrent) || config.concurrent < 1) {
+        throw new TypeError('concurrent must be a positive integer')
+    }
+    if (!Number.isSafeInteger(config.retries) || config.retries < 0) {
+        throw new TypeError('retries must be a non-negative integer')
+    }
+    if (
+        !Number.isFinite(config.retryDelay) ||
+        config.retryDelay < 0 ||
+        config.retryDelay > 2147483.647
+    ) {
+        throw new TypeError(
+            'retryDelay must be between 0 and 2147483.647 seconds',
+        )
+    }
+    if (typeof config.baseUrl !== 'string') {
+        throw new TypeError('baseUrl must be a string')
+    }
+    if (
+        !Array.isArray(config.retryOn) ||
+        !config.retryOn.every(
+            (status) =>
+                (Number.isInteger(status) && status >= 100 && status <= 599) ||
+                (typeof status === 'string' && /^[1-5]xx$/.test(status)),
+        )
+    ) {
+        throw new TypeError(
+            'retryOn must contain HTTP status numbers or patterns such as 5xx',
+        )
+    }
+    if (
+        !config.fetchOptions ||
+        typeof config.fetchOptions !== 'object' ||
+        Array.isArray(config.fetchOptions)
+    ) {
+        throw new TypeError('fetchOptions must be an object')
+    }
+    config.retryOn = [...config.retryOn]
+    config.fetchOptions = mergeOptions(
+        base.fetchOptions,
+        overrides.fetchOptions,
+    )
+    return config
+}
+
+function requestInput(input, baseUrl) {
+    if (input instanceof Request || input instanceof URL) return input
+    if (typeof input !== 'string' || input.length === 0) {
+        throw new TypeError('url must be a non-empty string, URL, or Request')
+    }
+    if (!baseUrl || /^[a-z][a-z\d+.-]*:/i.test(input) || input.startsWith('//'))
+        return input
+    return `${baseUrl.replace(/\/$/, '')}/${input.replace(/^\//, '')}`
+}
+
+// Discard intermediate responses so retries do not keep HTTP connections occupied.
+function discard(response) {
+    if (response.body && !response.body.locked) {
+        void response.body.cancel().catch(() => {})
+    }
+}
+
+/** Create an independent set of named queues, with its own default configuration. */
+export function createFetchQueue(config = {}) {
+    const instanceDefaults = configure(defaults, config)
+    const queues = new Map()
+    let debug = false
+
+    function log(event, queue) {
+        if (debug) {
+            console.debug('[fetch-queue]', event, {
+                queued: queue.tasks.length,
+                pending: queue.pending.size,
+                running: queue.running.size,
+            })
+        }
+    }
+
+    /** Create a queue. An existing queue returns an error object without changing it. */
+    function createQueue(queueName = 'default', overrides = {}) {
+        validateName(queueName)
+        if (queues.has(queueName))
+            return { error: 'Queue exists. Cannot create a new one' }
+        queues.set(queueName, {
+            name: queueName,
+            config: configure(instanceDefaults, overrides),
+            tasks: [],
+            pending: new Map(),
+            running: new Set(),
+            stopping: null,
+            destroying: false,
+            draining: false,
+        })
+    }
+
+    /** Return queued, retrying, and active request counts without creating a queue. */
+    function checkQueue(queueName = 'default') {
+        validateName(queueName)
+        const queue = queues.get(queueName)
+        const queued = queue?.tasks.length ?? 0
+        const pending = queue?.pending.size ?? 0
+        const running = queue?.running.size ?? 0
         return {
-            error: 'Queue exists. Cannot create a new one'
+            queueName,
+            queued,
+            pending,
+            running,
+            total: queued + pending + running,
+            killed: Boolean(queue?.stopping),
         }
     }
-    queues[queueName] = {
-        ...clone(defaultQueue),
-        ...{ config: { ...clone(defaultConfig), ...config } }
-    }
-    log('Queue created', queueName, queues[queueName])
-    return
-}
 
-const killQueue = (queueName = 'default', force = false) => {
-    return new Promise(resolve => {
-        log('Kill queue', queueName)
-        let queue = queues[queueName] || {}
-        queue.kill = resolve
-        if (force) {
-            log('Force kill queue', queueName)
-            Object.keys(queue.retryTimeouts).forEach(timeout => clearTimeout(timeout))
+    function settle(task, value, failed = false) {
+        if (task.settled) return
+        task.settled = true
+        task.signal?.removeEventListener('abort', task.onAbort)
+        if (failed) task.reject(value)
+        else task.resolve(value)
+    }
+
+    function failure(task, error) {
+        return {
+            url: task.url,
+            fetchOptions: task.options,
+            attempts: task.attempts,
+            error,
         }
-    })
-}
+    }
 
-const destroyQueue = async (queueName = 'default') => {
-    log('Destroy queue', queueName)
-    await killQueue(queueName)
-    delete queues[queueName]
-    log('Queue destroyed', queueName)
-    if (queueName === 'default') {
-        log('Recreate default queue', queueName)
-        createQueue()
+    function finishStop(queue) {
+        if (!queue.stopping || queue.running.size !== 0) return
+        const { resolve } = queue.stopping
+        if (queue.destroying) {
+            queues.delete(queue.name)
+            if (queue.name === 'default') createQueue()
+        }
+        queue.stopping = null
+        resolve()
     }
-    return
-}
 
-const checkQueue = (queueName = 'default') => {
-    log('Check queue', queueName)
-    let queue = queues[queueName]
-    let queued = queue?.tasks?.length || 0
-    let pending = Object.keys(queue?.retryTimeouts || {}).length
-    let running = queue?.running || 0
-    let total = queued + pending + running
-    let killed = queue?.kill ? true : false
-    return {
-        queueName,
-        queued,
-        pending,
-        running,
-        total,
-        killed,
+    function cancelWaiting(queue, task, reason) {
+        const index = queue.tasks.indexOf(task)
+        if (index !== -1) queue.tasks.splice(index, 1)
+        if (queue.pending.has(task)) {
+            clearTimeout(queue.pending.get(task))
+            queue.pending.delete(task)
+        }
+        settle(task, reason, true)
     }
-}
 
-const fetchQueue = (url, fetchOptions, queueName = 'default') => {
-    if (fetchOptions?.queueName) {
-        queueName = fetchOptions.queueName
+    function drain(queue) {
+        if (queue.stopping) {
+            finishStop(queue)
+            return
+        }
+        // A synchronous fetch failure can call drain again before this loop advances.
+        if (queue.draining) return
+        queue.draining = true
+        try {
+            while (
+                !queue.stopping &&
+                queue.tasks.length &&
+                queue.running.size < queue.config.concurrent
+            ) {
+                const task = queue.tasks.shift()
+                queue.running.add(task)
+                void run(queue, task)
+            }
+        } finally {
+            queue.draining = false
+        }
     }
-    log('Fetch queue', queueName)
-    let queue = queues[queueName]
-    if (!queue) {
-        createQueue(queueName)
-        queue = queues[queueName]
+
+    function retry(queue, task, error, retryable) {
+        if (task.settled) return
+        if (queue.stopping) {
+            settle(task, 'Queue Killed', true)
+        } else if (
+            retryable &&
+            task.replayable &&
+            task.attempts < Math.max(1, queue.config.retries)
+        ) {
+            const timer = setTimeout(() => {
+                queue.pending.delete(task)
+                queue.tasks.push(task)
+                drain(queue)
+            }, queue.config.retryDelay * 1000)
+            queue.pending.set(task, timer)
+        } else {
+            settle(task, failure(task, error), true)
+        }
     }
-    return new Promise((resolve, reject) => {
-        queue.tasks.push(
-            {
-                url,
+
+    async function run(queue, task) {
+        task.attempts++
+        log('request started', queue)
+        try {
+            const response = await globalThis.fetch(task.input, {
+                ...task.options,
+                signal: task.fetchSignal,
+            })
+            if (task.settled) {
+                discard(response)
+            } else if (response.ok) {
+                settle(task, response)
+            } else {
+                const retryable =
+                    queue.config.retryOn.includes(response.status) ||
+                    queue.config.retryOn.includes(
+                        `${Math.floor(response.status / 100)}xx`,
+                    )
+                retry(queue, task, response, retryable)
+                if (!task.settled || queue.stopping) discard(response)
+            }
+        } catch (error) {
+            if (task.fetchSignal.aborted || error?.name === 'AbortError') {
+                settle(task, task.fetchSignal.reason ?? error, true)
+            } else {
+                retry(queue, task, error, true)
+            }
+        } finally {
+            queue.running.delete(task)
+            log('request finished', queue)
+            drain(queue)
+        }
+    }
+
+    /** Enqueue a fetch. Requests share the selected queue's concurrency limit. */
+    function fetchQueue(url, fetchOptions = {}, queueName = 'default') {
+        return new Promise((resolve, reject) => {
+            if (
+                !fetchOptions ||
+                typeof fetchOptions !== 'object' ||
+                Array.isArray(fetchOptions)
+            ) {
+                throw new TypeError('fetchOptions must be an object')
+            }
+            queueName = fetchOptions.queueName ?? queueName
+            validateName(queueName)
+            if (!queues.has(queueName)) createQueue(queueName)
+            const queue = queues.get(queueName)
+            if (queue.stopping) {
+                reject('Queue Killed')
+                return
+            }
+            const input = requestInput(url, queue.config.baseUrl)
+            const options = mergeOptions(
+                queue.config.fetchOptions,
+                input instanceof Request ? { headers: input.headers } : {},
                 fetchOptions,
+            )
+            const signal =
+                options.signal === undefined && input instanceof Request
+                    ? input.signal
+                    : options.signal
+            // Validate the native signal and reject an already-aborted request before enqueueing.
+            if (signal != null)
+                AbortSignal.prototype.throwIfAborted.call(signal)
+            const controller = new AbortController()
+            // Native composition also keeps caller cancellation connected to returned response bodies.
+            const fetchSignal =
+                signal == null
+                    ? controller.signal
+                    : AbortSignal.any([controller.signal, signal])
+            const body =
+                options.body ?? (input instanceof Request ? input.body : null)
+            const task = {
+                url,
+                input,
+                options,
+                signal,
+                controller,
+                fetchSignal,
                 resolve,
                 reject,
                 attempts: 0,
-                error: null
+                settled: false,
+                // Streams are consumed by fetch and cannot be safely sent again.
+                replayable:
+                    !body ||
+                    (typeof body.getReader !== 'function' &&
+                        typeof body[Symbol.asyncIterator] !== 'function'),
             }
-        )
-        log('Task added', queueName)
-        processQueue(queueName)
-    })
-}
-
-const wait = (seconds = 1, queueName) => {
-    return new Promise(resolve => {
-        log('Task wait', queueName, { seconds })
-        let queue = queues[queueName]
-        let timeout = setTimeout(() => {
-            log('Task done waiting', queueName, { timeout })
-            resolve()
-            if (queue) {
-                clearTimeout(timeout)
-                delete queue.retryTimeouts[timeout]
+            task.onAbort = () => {
+                controller.abort(signal.reason)
+                cancelWaiting(queue, task, controller.signal.reason)
+                drain(queue)
             }
-        }, 1000 * seconds)
-        if (queue) {
-            queue.retryTimeouts[timeout] = timeout
-        }
-    })
-}
-
-const processQueue = async (queueName) => {
-    log('Process queue', queueName)
-    let queue = queues[queueName]
-    if (!queue) {
-        log('Missing queue', queueName)
-        return
-    }
-    if (queue.kill) {
-        log('Queue kill requested', queueName)
-        let remainingTasks = queue.tasks.splice(0, queue.tasks.length)
-        if (remainingTasks.length) {
-            log('Killing tasks', queueName, { remainingTasks })
-            remainingTasks.forEach(task => task.reject('Queue Killed'))
-        }
-        let status = checkQueue(queueName)
-        if (status.total === 0) {
-            log('Queue killed', queueName, { status })
-            queue.kill()
-            queue.kill = null
-        } else {
-            log('Queue wrapping up tasks', queueName, { status })
-        }
-        return
-    }
-    let concurrent = queue.config.concurrent || defaultConfig.concurrent
-    let count = concurrent - queue.running
-    if (!count) {
-        log('Concurrency maxed out', queueName)
-        return
-    } else {
-        log('Concurrency allows for more tasks', queueName, { count })
-    }
-    let tasks = queue.tasks.splice(0, count)
-
-    if (!tasks.length) {
-        log('No tasks left', queueName)
-        return
-    }
-    log(`Adding ${tasks.length} tasks`, queueName)
-    queue.running += tasks.length
-    let promises = tasks.map(async task => {
-        task.attempts++
-        if (task.attempts > queue.config.retries) {
-            log('Task failed too many times', queueName)
-            queue.running--
-            return task.reject({
-                url: task.url,
-                fetchOptions: task.fetchOptions,
-                attempts: task.error,
-                error: task.error
-            })
-        }
-        let options = {
-            ...queue.config.fetchOptions,
-            ...(task.fetchOptions || {})
-        }
-        log(`Running task`, queueName)
-        return fetch(queue.config.baseUrl + task.url, options)
-            .then(resp => {
-                log('Task completed', queueName)
-                let httpErrorXX = resp.status ? resp.status.toString()[0] + 'xx' : null
-                if (
-                    !resp.ok ||
-                    queue.config.retryOn.indexOf(resp.status) > 1 ||
-                    queue.config.retryOn.indexOf(httpErrorXX) > 1) {
-                    log('Task did not succeed', queueName)
-                    throw resp
-                }
-                task.resolve(resp)
-                queue.running--
-                processQueue(queueName)
+            if (signal?.aborted) {
+                task.onAbort()
                 return
-            }).catch(async err => {
-                console.log(queue.running)
-                queue.running--
-                console.log(queue.running)
-                task.error = err
-                log('Task threw an error', queueName)
-                processQueue(queueName)
-                // queue.pending++
-                let delay = queue.kill ? 0 : queue.config.retryDelay
-                await wait(delay, queue)
-                log('Requeued task', queueName, queue)
+            }
+            signal?.addEventListener('abort', task.onAbort, { once: true })
+            queue.tasks.push(task)
+            drain(queue)
+        })
+    }
 
-                // queue.pending--
-                queue.tasks.push(task)
-                processQueue(queueName)
-                return
+    function stop(queueName, force, destroying) {
+        validateName(queueName)
+        const queue = queues.get(queueName)
+        if (!queue) return Promise.resolve()
+        queue.destroying ||= destroying
+        if (!queue.stopping) {
+            let resolve
+            const promise = new Promise((done) => {
+                resolve = done
             })
-    })
-    return Promise.allSettled(promises)
+            queue.stopping = { promise, resolve }
+        }
+        const promise = queue.stopping.promise
+        for (const task of [...queue.tasks.splice(0), ...queue.pending.keys()])
+            cancelWaiting(queue, task, 'Queue Killed')
+        if (force) {
+            for (const task of queue.running) {
+                settle(task, 'Queue Killed', true)
+                task.controller.abort('Queue Killed')
+            }
+        }
+        finishStop(queue)
+        return promise
+    }
+
+    /** Cancel waiting work and wait for active requests. Force also aborts active fetches. */
+    async function killQueue(queueName = 'default', force = false) {
+        await stop(queueName, force, false)
+    }
+
+    /** Stop and remove a queue, recreating the default queue when needed. */
+    async function destroyQueue(queueName = 'default', force = false) {
+        await stop(queueName, force, true)
+    }
+
+    /** Toggle diagnostic counts. Request URLs, options, and responses are never logged. */
+    function debugQueue(enabled = true) {
+        debug = Boolean(enabled)
+    }
+
+    createQueue()
+    return {
+        fetchQueue,
+        createQueue,
+        checkQueue,
+        killQueue,
+        destroyQueue,
+        debugQueue,
+    }
 }
 
-const debugQueue = () => {
-    debug = true
-}
-
-export default fetchQueue
-
-export {
+const shared = createFetchQueue()
+export const {
     fetchQueue,
     createQueue,
     checkQueue,
     killQueue,
     destroyQueue,
-    debugQueue
-}
-
+    debugQueue,
+} = shared
+export default fetchQueue
