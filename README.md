@@ -6,9 +6,9 @@ Limit concurrent Fetch requests, retry selected HTTP failures, and cancel queued
 `fetch-queue` is an ES module with no runtime dependencies. Use a shared queue across
 an application, or create isolated queues for separate clients.
 
-> This README describes the unreleased repository changes. npm currently publishes
-> version 1.0.3, while this checkout retains its historical 1.0.2 metadata. See the [migration guide](./docs/migration.md) before adopting the
-> next release, including the corrected retry behavior and Node requirement.
+> Version 2 requires Node.js 22.13.0 or later and changes some request behavior.
+> Upgrading from 1.0.x? Read the [migration guide](./docs/migration.md) for retry,
+> header, URL, configuration, and cancellation changes.
 
 ## Quick start
 
@@ -18,7 +18,7 @@ Install the published package:
 npm install fetch-queue
 ```
 
-To try the unreleased changes from a checkout, run `npm ci` followed by `npm run example`.
+To run the local example from a checkout, use `npm ci` followed by `npm run example`.
 The example starts a local HTTP server, runs a batch with one retry, and shuts down.
 It does not call an external service.
 
@@ -119,7 +119,7 @@ finished. See the [lifecycle reference](./docs/api.md#queue-lifecycle) for detai
 
 ## Runtime support
 
-The unreleased code targets Node.js 22.13.0 or later and modern browsers with
+Version 2 targets Node.js 22.13.0 or later and modern browsers with
 `fetch`, `Headers`, `Request`, `URL`, `AbortController`, `AbortSignal.any`, and
 `AbortSignal.prototype.throwIfAborted`. It includes TypeScript declarations and
 requires no build step. Browser projects normally resolve the npm import through
@@ -132,7 +132,7 @@ support and release policies are described in [CONTRIBUTING.md](./CONTRIBUTING.m
 
 - [API reference](./docs/api.md): exports, options, errors, status, and lifecycle behavior.
 - [Migration guide](./docs/migration.md): changes from 1.0.x and release compatibility.
-- [Changelog](./CHANGELOG.md): unreleased fixes and additions.
+- [Changelog](./CHANGELOG.md): release history, fixes, and additions.
 - [Contributing](./CONTRIBUTING.md): local checks, tests, and the pull request workflow.
 - [Review record](./docs/review.md): findings, fixes, and validation from this review.
 - [Security policy](./SECURITY.md): private vulnerability reporting.

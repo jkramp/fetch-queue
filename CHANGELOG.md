@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 - 2026-09-12
 
 ### Compatibility changes
 
@@ -11,7 +11,8 @@
   prefix for absolute URLs and native URL/Request inputs.
 - Do not retry caller cancellation or streaming request bodies.
 
-These changes should ship in a major release. See the [migration guide](./docs/migration.md).
+This is a major release with changes to existing behavior. See the
+[migration guide](./docs/migration.md) before upgrading from 1.0.x.
 
 ### Fixed
 
@@ -41,7 +42,7 @@ These changes should ship in a major release. See the [migration guide](./docs/m
 
 ## 1.0.x
 
-The npm registry publishes 1.0.3, while the repository baseline contains version
+Before 2.0.0, npm published 1.0.3 while the repository baseline contained version
 1.0.2 metadata. The published 1.0.3 runtime matches the baseline after normalizing
 line endings. Configurable HTTP retry status codes are present in both.
 This review does not assign new historical release dates.

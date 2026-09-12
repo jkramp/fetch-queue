@@ -5,9 +5,10 @@ The review covered every tracked source/documentation file, the open refactor,
 the console-cleanup contribution, the documentation issue, and npm packaging.
 The published 1.0.3 runtime matches that baseline after normalizing line endings.
 
-The work is split into runtime fixes, package/CI maintenance, and documentation.
-It remains unreleased and should be reviewed through the corresponding PRs before
-merging. The repository's 1.0.2 metadata has not been used to publish a new package.
+The work was reviewed and merged through [runtime PR #4](https://github.com/jkramp/fetch-queue/pull/4),
+[package/CI PR #5](https://github.com/jkramp/fetch-queue/pull/5), and
+[documentation PR #6](https://github.com/jkramp/fetch-queue/pull/6).
+Release changes and migration instructions are recorded in the [changelog](../CHANGELOG.md).
 
 ## Behavior findings
 
@@ -82,4 +83,4 @@ already returned to callers, and an abort-ignoring custom fetch can delay shutdo
 These behaviors are documented in the [API reference](./api.md).
 
 Safari/WebKit and mobile devices were not tested. Browser checks are separate from
-CI. No npm release, Git tag, or merge was performed as part of this review.
+CI. These checks cover the reviewed implementation; the changelog records subsequent releases.
